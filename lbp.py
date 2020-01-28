@@ -1,49 +1,77 @@
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import numpy as np
-from skimage import feature
-from skimage import color
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix,plot_confusion_matrix
+
+from sklearn.metrics import accuracy_score
+from lbp import getLBPCoefficents
+
+import cv2, os
+from imutils import paths
+import joblib
+from preprocess import preprocess
+
+# INITILAZE DATA AND LABELS LIST FPR TRAINING
+
+data_train = []
+labels_train = []
+
+# TRAINING PHASE
+for imagePath in paths.list_images('../dataset/training/'):
+    # Get the image of poison part 
+    image = preprocess(imagePath)
+
+    # Extract features for the image of poison part
+    features = getLBPCoefficents(image)
+
+    # Append features and labels of training-set to arrays
+    labels_train.append(imagePath.split(os.path.sep)[-2])
+    data_train.append(features)
+
+# TRAINING MODEL WITH SKLEARN LIBRARY
+model = SVC(C=100, random_state=42)
+model.fit(data_train, labels_train)
+
+# ACCURANCY
+print("Accuracy: %.2f %%" %(100*model.score(data_train, labels_train)))
+
+# SAVE MODEL TO A FILE
+filename = 'final_model.sav'
+joblib.dump(model, filename)
 
 
-def getLBPCoefficents(image, eps=1e-7):
+# INITILAZE DATA AND LABELS LIST FPR TRAINING
+data_test = []
+labels_test = []
 
-    rgb_image = color.lab2rgb(image)
-    gray_image = color.rgb2gray(rgb_image)
+# TESTING PHASE
+for imagePath in paths.list_images('../dataset/testing/'):
 
-    imgLBP = np.zeros_like(gray_image)
+    image = preprocess(imagePath)
+    features = getLBPCoefficents(image)
 
-    # FEATURE EXTRACTION WITH SKIMAGE LIBRARY
+    labels_test.append(imagePath.split(os.path.sep)[-2])
+    data_test.append(features)
 
-    # lbp = feature.local_binary_pattern(gray_image, 8, 1, method="uniform")
-    # (hist, _) = np.histogram(lbp.ravel(), bins=np.arange(0, 11), range=(0, 10))
-    # hist = hist.astype("float")
-    # hist /= (hist.sum() + eps)
+    # SHOW PREDICTION ON IMAGE
 
-    for ih in range(0, image.shape[0] - 3):
+    # prediction = model.predict(features.reshape(1, -1))
 
-        for iw in range(0, image.shape[1] - 3):
-            
-            # Select a matrix 3x3 in image
-            img = gray_image[ih:ih + 3, iw:iw + 3]
-            center = img[1, 1]
+    # cv2.putText(image_ori, prediction[0], (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+	# 	1.0, (0, 0, 255), 3)
+    # cv2.imshow("Image", image_ori)
+    # cv2.waitKey(0)
 
-            # Compute a new matrix
-            # Equals 1 with pixels >= center
-            # Equals 0 with pixels < center
-            img01 = (img >= center)*1.0
-            img01_vector = img01.T.flatten()
+# ACCURANCY OF TESTING PHASE
+labels_pred = model.predict(data_test)
 
-            img01_vector = np.delete(img01_vector, 4)
-            
-            where_img01_vector = np.where(img01_vector)[0]
-            if len(where_img01_vector) >= 1:
-                num = np.sum(2**where_img01_vector)
-            else:
-                num = 0
-            imgLBP[ih+1, iw+1] = num
+print("Accuracy: %.2f %%" %(100*accuracy_score(labels_test, labels_pred)))
 
-        (hist, _) = np.histogram(imgLBP, bins=np.arange(0, 11), range=(0, 10))
+# Calculate and plot confusion matrix
+disp = plot_confusion_matrix(model, data_test, labels_test,
+                                cmap=plt.cm.Blues,
+                                normalize='true')
 
-        # Nomalize histogram
-        hist = hist.astype("float")
-        hist /= (hist.sum() + eps)
-
-    return(hist)
+print(disp.confusion_matrix)
+plt.show()
