@@ -19,11 +19,11 @@ def image_display(inImg, label, chosen=0):
             sep_imgs[i,j,:,int(label[i,j])] = inImg[i,j,:]
     
     grey_img = label *255/4
-    _ ,axs = plt.subplots(nrows= 1, ncols=(K+3), sharex=True, sharey=True,figsize=(8, 4))
+    fig ,axs = plt.subplots(nrows= 1, ncols=(K+3), sharex=True, sharey=True,figsize=(8, 4))
     for i in  range(K+1):
-        axs[0,i].imshow(sep_imgs[:,:,:,i])
-    axs[0,K+1].imshow(grey_img,cmap='gray', vmin=0, vmax=255)
-    axs[0,K+2].imshow(sep_imgs[:,:,:,chosen])
+        axs[i].imshow(sep_imgs[:,:,:,i])
+    axs[K+1].imshow(grey_img,cmap='gray', vmin=0, vmax=255)
+    axs[K+2].imshow(sep_imgs[:,:,:,chosen])
     plt.show()
 
 def image_chosen(inImg, label, chosen=0):
@@ -125,16 +125,10 @@ def preprocess(filepath):
     img_test = image2matrix(image['lab'][:,:,range(ab,3)])
     (centers, label) = cus_kmeans(img_test['sc'], K)
 
-    # Calculate mean of each cluster to filter dark background
-    sum_img = abs(img_test['sc'][:,0]) + abs(img_test['sc'][:,1])
-    num_lb = np.array([sum(sum_img[label == i]) /sum(label == i) for i in range(K)])
-
-    # Using nearest neightbour to choose segment
-    # Not check cluster that has mean of abs(value of pixel) < 7.5 
-    feature = np.array([6.2, 10],ndmin=2)
-    D = cdist(feature, (centers[-1])[num_lb > 7.5])
+    # Use nearest neighbour to choose desease cluster
+    feature = np.array([24.05894165, 28.99247693],ndmin=2)
+    D = cdist(feature, centers[-1])
     chosen = np.argmin(D, axis = 1)
-
     img_lb = lbarray2image(label, img_test['shape'])
     #image_display(colr.lab2rgb(image['lab']),img_lb,chosen[0])
     
